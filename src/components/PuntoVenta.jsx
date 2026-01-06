@@ -73,8 +73,6 @@ export default function PuntoVenta() {
       const producto = await getProductoByCodigoBarras(codigo.trim())
       if (producto) {
         agregarAlCarrito(producto)
-      } else {
-        alert('Producto no encontrado')
       }
     } catch (error) {
       console.error('Error buscando producto:', error)
@@ -86,7 +84,7 @@ export default function PuntoVenta() {
     setBusqueda(valor)
     
     // Si parece un código de barras (solo números, más de 5 dígitos), intentar escanear
-    if (/^\d{8,}$/.test(valor)) {
+    if (/^\d{6,}$/.test(valor)) {
       escanearCodigoBarras(valor)
     }
   }
