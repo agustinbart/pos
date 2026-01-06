@@ -35,14 +35,14 @@ function App() {
               Inventario
             </button>
           </div>
-        </div>
+      </div>
       </nav>
 
       {/* Contenido */}
       <main>
         {vistaActiva === 'venta' ? <PuntoVenta /> : <Inventario />}
       </main>
-    </div>
+      </div>
   )
 }
 

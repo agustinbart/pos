@@ -99,8 +99,6 @@ npm run build
    - `VITE_SUPABASE_ANON_KEY`
 3. Vercel detectará automáticamente Vite y desplegará la aplicación
 
-**⚠️ Importante**: Nunca subas archivos `.env` o `.env.local` al repositorio. Estos contienen credenciales sensibles. Ver [SECURITY.md](./SECURITY.md) para más información sobre seguridad.
-
 ## Estructura del Proyecto
 
 ```

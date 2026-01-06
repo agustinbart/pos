@@ -86,7 +86,7 @@ export default function PuntoVenta() {
     setBusqueda(valor)
     
     // Si parece un código de barras (solo números, más de 5 dígitos), intentar escanear
-    if (/^\d{6,}$/.test(valor)) {
+    if (/^\d{8,}$/.test(valor)) {
       escanearCodigoBarras(valor)
     }
   }
