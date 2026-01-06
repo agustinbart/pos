@@ -4,12 +4,15 @@ import { getProductoByCodigoBarras, buscarProductos } from '../services/db'
 import { crearVenta } from '../services/db'
 import BarcodeScanner from './BarcodeScanner'
 
+import PanelResumen from './PanelResumen'
+
 export default function PuntoVenta() {
   const [carrito, setCarrito] = useState([])
   const [busqueda, setBusqueda] = useState('')
   const [productosEncontrados, setProductosEncontrados] = useState([])
   const [mostrarBusqueda, setMostrarBusqueda] = useState(false)
   const [ventaExitosa, setVentaExitosa] = useState(false)
+  const [conteoRefrescar, setConteoRefrescar] = useState(0)
   const [cargando, setCargando] = useState(false)
   const inputBusquedaRef = useRef(null)
   const [mostrarScanner, setMostrarScanner] = useState(false)
@@ -135,6 +138,7 @@ export default function PuntoVenta() {
       
       setCarrito([])
       setVentaExitosa(true)
+      setConteoRefrescar(c => c + 1)
       setTimeout(() => setVentaExitosa(false), 3000)
     } catch (error) {
       console.error('Error procesando venta:', error)
@@ -147,6 +151,7 @@ export default function PuntoVenta() {
   return (
     <div className="min-h-screen bg-gray-900 p-4 md:p-6">
       <div className="max-w-6xl mx-auto">
+        <PanelResumen refrescar={conteoRefrescar} />
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-white flex items-center gap-2 mb-4">
@@ -193,7 +198,7 @@ export default function PuntoVenta() {
               className="flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-3 text-white hover:bg-gray-700 border border-gray-700"
             >
               <Scan className="w-5 h-5" />
-              Cámara
+              Escanear
             </button>
           </div>
         </div>
