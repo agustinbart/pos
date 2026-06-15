@@ -119,7 +119,8 @@ export const crearVenta = async (ventaData) => {
   // Crear detalles de venta
   const detalles = detalle.map(item => ({
     venta_id: venta.id,
-    producto_id: item.producto_id,
+    producto_id: item.producto_id || null,
+    nombre_personalizado: item.nombre_personalizado || null,
     cantidad: item.cantidad,
     precio_unitario: item.precio_unitario
   }))

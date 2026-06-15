@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { ShoppingCart, Trash2, Plus, Minus, CheckCircle, Scan } from 'lucide-react'
+import { ShoppingCart, Trash2, Plus, Minus, CheckCircle, Scan, Tag } from 'lucide-react'
 import { getProductoByCodigoBarras, buscarProductos } from '../services/db'
 import { crearVenta } from '../services/db'
 import BarcodeScanner from './BarcodeScanner'
@@ -17,6 +17,9 @@ export default function PuntoVenta() {
   const inputBusquedaRef = useRef(null)
   const [mostrarScanner, setMostrarScanner] = useState(false)
   const busquedaContainerRef = useRef(null)
+  const [mostrarProductoGenerico, setMostrarProductoGenerico] = useState(false)
+  const [productoGenerico, setProductoGenerico] = useState({ nombre: '', precio: '' })
+  const inputNombreGenericoRef = useRef(null)
 
   useEffect(() => {
     if (busqueda.trim()) {
@@ -27,12 +30,17 @@ export default function PuntoVenta() {
   }, [busqueda])
 
   useEffect(() => {
+    if (mostrarProductoGenerico && inputNombreGenericoRef.current) {
+      inputNombreGenericoRef.current.focus()
+    }
+  }, [mostrarProductoGenerico])
+
+  useEffect(() => {
     if (mostrarBusqueda && inputBusquedaRef.current) {
       inputBusquedaRef.current.focus()
     }
   }, [mostrarBusqueda])
 
-  // Cerrar resultados al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (busquedaContainerRef.current && !busquedaContainerRef.current.contains(event.target)) {
@@ -57,16 +65,45 @@ export default function PuntoVenta() {
       ))
     } else {
       setCarrito([...carrito, {
+        id: producto.id,
         producto_id: producto.id,
         nombre: producto.nombre,
         precio_unitario: producto.precio_venta,
-        cantidad: 1
+        cantidad: 1,
+        esGenerico: false
       }])
     }
     
     setBusqueda('')
     setProductosEncontrados([])
     setMostrarBusqueda(false)
+  }
+
+  const agregarProductoGenerico = (e) => {
+    e.preventDefault()
+    const nombre = productoGenerico.nombre.trim()
+    const precio = parseFloat(productoGenerico.precio)
+
+    if (!nombre) {
+      alert('Ingresa un nombre para el producto')
+      return
+    }
+    if (isNaN(precio) || precio <= 0) {
+      alert('Ingresa un precio válido mayor a 0')
+      return
+    }
+
+    setCarrito([...carrito, {
+      id: crypto.randomUUID(),
+      producto_id: null,
+      nombre,
+      precio_unitario: precio,
+      cantidad: 1,
+      esGenerico: true
+    }])
+
+    setProductoGenerico({ nombre: '', precio: '' })
+    setMostrarProductoGenerico(false)
   }
 
   const escanearCodigoBarras = async (codigo) => {
@@ -99,20 +136,20 @@ export default function PuntoVenta() {
     setMostrarScanner(false)
   }
 
-  const actualizarCantidad = (productoId, nuevaCantidad) => {
+  const actualizarCantidad = (itemId, nuevaCantidad) => {
     if (nuevaCantidad <= 0) {
-      setCarrito(carrito.filter(item => item.producto_id !== productoId))
+      setCarrito(carrito.filter(item => item.id !== itemId))
     } else {
       setCarrito(carrito.map(item =>
-        item.producto_id === productoId
+        item.id === itemId
           ? { ...item, cantidad: nuevaCantidad }
           : item
       ))
     }
   }
 
-  const eliminarDelCarrito = (productoId) => {
-    setCarrito(carrito.filter(item => item.producto_id !== productoId))
+  const eliminarDelCarrito = (itemId) => {
+    setCarrito(carrito.filter(item => item.id !== itemId))
   }
 
   const calcularTotal = () => {
@@ -130,6 +167,7 @@ export default function PuntoVenta() {
       const total = calcularTotal()
       const detalle = carrito.map(item => ({
         producto_id: item.producto_id,
+        nombre_personalizado: item.esGenerico ? item.nombre : null,
         cantidad: item.cantidad,
         precio_unitario: item.precio_unitario
       }))
@@ -200,6 +238,14 @@ export default function PuntoVenta() {
               <Scan className="w-5 h-5" />
               Escanear
             </button>
+            <button
+              type="button"
+              onClick={() => setMostrarProductoGenerico(true)}
+              className="flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-3 text-white hover:bg-gray-700 border border-gray-700 whitespace-nowrap"
+            >
+              <Tag className="w-5 h-5" />
+              Genérico
+            </button>
           </div>
         </div>
 
@@ -225,17 +271,20 @@ export default function PuntoVenta() {
                 <div className="space-y-3">
                   {carrito.map((item) => (
                     <div
-                      key={item.producto_id}
+                      key={item.id}
                       className="bg-gray-700 rounded-lg p-4 flex items-center justify-between gap-4"
                     >
                       <div className="flex-1">
                         <h3 className="text-white font-semibold text-lg">{item.nombre}</h3>
+                        {item.esGenerico && (
+                          <span className="text-xs text-amber-400 uppercase tracking-wide">Genérico</span>
+                        )}
                         <p className="text-gray-400">${item.precio_unitario.toFixed(2)} c/u</p>
                       </div>
                       
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => actualizarCantidad(item.producto_id, item.cantidad - 1)}
+                          onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
                           className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg transition-colors"
                         >
                           <Minus className="w-5 h-5" />
@@ -244,7 +293,7 @@ export default function PuntoVenta() {
                           {item.cantidad}
                         </span>
                         <button
-                          onClick={() => actualizarCantidad(item.producto_id, item.cantidad + 1)}
+                          onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
                           className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg transition-colors"
                         >
                           <Plus className="w-5 h-5" />
@@ -253,7 +302,7 @@ export default function PuntoVenta() {
                           ${(item.precio_unitario * item.cantidad).toFixed(2)}
                         </span>
                         <button
-                          onClick={() => eliminarDelCarrito(item.producto_id)}
+                          onClick={() => eliminarDelCarrito(item.id)}
                           className="p-2 text-red-400 hover:bg-gray-600 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -273,7 +322,7 @@ export default function PuntoVenta() {
               
               <div className="space-y-3 mb-6">
                 {carrito.map((item) => (
-                  <div key={item.producto_id} className="flex justify-between text-gray-300">
+                  <div key={item.id} className="flex justify-between text-gray-300">
                     <span>{item.nombre} x{item.cantidad}</span>
                     <span>${(item.precio_unitario * item.cantidad).toFixed(2)}</span>
                   </div>
@@ -321,6 +370,59 @@ export default function PuntoVenta() {
         onClose={() => setMostrarScanner(false)}
         onDetected={handleScanDetected}
       />
+
+      {mostrarProductoGenerico && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-2xl font-bold text-white mb-4">Producto genérico</h2>
+            <form onSubmit={agregarProductoGenerico} className="space-y-4">
+              <div>
+                <label className="block text-gray-300 mb-2">Nombre *</label>
+                <input
+                  ref={inputNombreGenericoRef}
+                  type="text"
+                  required
+                  value={productoGenerico.nombre}
+                  onChange={(e) => setProductoGenerico({ ...productoGenerico, nombre: e.target.value })}
+                  placeholder="Ej: Servicio, artículo suelto..."
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 mb-2">Precio *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={productoGenerico.precio}
+                  onChange={(e) => setProductoGenerico({ ...productoGenerico, precio: e.target.value })}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductoGenerico({ nombre: '', precio: '' })
+                    setMostrarProductoGenerico(false)
+                  }}
+                  className="flex-1 bg-gray-600 hover:bg-gray-500 text-white py-3 rounded-lg font-semibold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-colors"
+                >
+                  Agregar al carrito
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

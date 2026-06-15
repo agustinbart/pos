@@ -22,10 +22,21 @@ CREATE TABLE IF NOT EXISTS ventas (
 CREATE TABLE IF NOT EXISTS detalle_ventas (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   venta_id UUID NOT NULL REFERENCES ventas(id) ON DELETE CASCADE,
-  producto_id UUID NOT NULL REFERENCES productos(id),
+  producto_id UUID REFERENCES productos(id),
+  nombre_personalizado TEXT,
   cantidad INTEGER NOT NULL,
-  precio_unitario DECIMAL(10,2) NOT NULL
+  precio_unitario DECIMAL(10,2) NOT NULL,
+  CONSTRAINT detalle_producto_o_nombre CHECK (
+    producto_id IS NOT NULL OR nombre_personalizado IS NOT NULL
+  )
 );
+
+-- Migración para bases de datos existentes (ejecutar si ya tenías la tabla creada)
+-- ALTER TABLE detalle_ventas ALTER COLUMN producto_id DROP NOT NULL;
+-- ALTER TABLE detalle_ventas ADD COLUMN IF NOT EXISTS nombre_personalizado TEXT;
+-- ALTER TABLE detalle_ventas ADD CONSTRAINT detalle_producto_o_nombre CHECK (
+--   producto_id IS NOT NULL OR nombre_personalizado IS NOT NULL
+-- );
 
 -- Índices para mejorar rendimiento
 CREATE INDEX IF NOT EXISTS idx_productos_codigo_barras ON productos(codigo_barras);
