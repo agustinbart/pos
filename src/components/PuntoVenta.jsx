@@ -53,6 +53,12 @@ export default function PuntoVenta() {
     }
   }, [])
 
+  const enfocarInputBusqueda = () => {
+    setTimeout(() => {
+      inputBusquedaRef.current?.focus()
+    }, 0)
+  }
+
   const agregarAlCarrito = (producto) => {
     const itemExistente = carrito.find(item => item.producto_id === producto.id)
     
@@ -112,6 +118,7 @@ export default function PuntoVenta() {
       const producto = await getProductoByCodigoBarras(codigo.trim())
       if (producto) {
         agregarAlCarrito(producto)
+        enfocarInputBusqueda()
       }
     } catch (error) {
       console.error('Error buscando producto:', error)
