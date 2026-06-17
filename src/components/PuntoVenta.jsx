@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { ShoppingCart, Trash2, Plus, Minus, CheckCircle, Scan, Tag } from 'lucide-react'
 import { getProductoByCodigoBarras, buscarProductos } from '../services/db'
 import { crearVenta } from '../services/db'
-import BarcodeScanner from './BarcodeScanner'
 
 import PanelResumen from './PanelResumen'
 
@@ -15,10 +14,10 @@ export default function PuntoVenta() {
   const [conteoRefrescar, setConteoRefrescar] = useState(0)
   const [cargando, setCargando] = useState(false)
   const inputBusquedaRef = useRef(null)
-  const [mostrarScanner, setMostrarScanner] = useState(false)
   const busquedaContainerRef = useRef(null)
   const [mostrarProductoGenerico, setMostrarProductoGenerico] = useState(false)
   const [productoGenerico, setProductoGenerico] = useState({ nombre: '', precio: '' })
+  const [pagaCon, setPagaCon] = useState('')
   const inputNombreGenericoRef = useRef(null)
 
   useEffect(() => {
@@ -133,7 +132,6 @@ export default function PuntoVenta() {
     if (!code) return
     setBusqueda(code)
     escanearCodigoBarras(code)
-    setMostrarScanner(false)
   }
 
   const actualizarCantidad = (itemId, nuevaCantidad) => {
@@ -156,6 +154,10 @@ export default function PuntoVenta() {
     return carrito.reduce((total, item) => total + (item.precio_unitario * item.cantidad), 0)
   }
 
+  const total = calcularTotal()
+  const montoPagaCon = parseFloat(pagaCon) || 0
+  const cambio = montoPagaCon > 0 ? Math.max(0, montoPagaCon - total) : 0
+
   const confirmarVenta = async () => {
     if (carrito.length === 0) {
       alert('El carrito está vacío')
@@ -175,6 +177,7 @@ export default function PuntoVenta() {
       await crearVenta({ detalle, total })
       
       setCarrito([])
+      setPagaCon('')
       setVentaExitosa(true)
       setConteoRefrescar(c => c + 1)
       setTimeout(() => setVentaExitosa(false), 3000)
@@ -230,14 +233,6 @@ export default function PuntoVenta() {
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setMostrarScanner(true)}
-              className="flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-3 text-white hover:bg-gray-700 border border-gray-700"
-            >
-              <Scan className="w-5 h-5" />
-              Escanear
-            </button>
             <button
               type="button"
               onClick={() => setMostrarProductoGenerico(true)}
@@ -329,11 +324,37 @@ export default function PuntoVenta() {
                 ))}
               </div>
 
-              <div className="border-t border-gray-700 pt-4 mb-6">
+              <div className="border-t border-gray-700 pt-4 mb-4">
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-semibold text-white">Total:</span>
                   <span className="text-2xl font-bold text-green-400">
-                    ${calcularTotal().toFixed(2)}
+                    ${total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-6 space-y-3">
+                <div>
+                  <label htmlFor="paga-con" className="block text-gray-300 mb-2">
+                    Paga con
+                  </label>
+                  <input
+                    id="paga-con"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={pagaCon}
+                    onChange={(e) => setPagaCon(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-lg font-semibold text-white">Cambio:</span>
+                  <span className={`text-xl font-bold ${montoPagaCon > 0 && montoPagaCon < total ? 'text-red-400' : 'text-blue-400'}`}>
+                    {montoPagaCon > 0 && montoPagaCon < total
+                      ? `Faltan $${(total - montoPagaCon).toFixed(2)}`
+                      : `$${cambio.toFixed(2)}`}
                   </span>
                 </div>
               </div>
@@ -355,7 +376,10 @@ export default function PuntoVenta() {
 
               {carrito.length > 0 && (
                 <button
-                  onClick={() => setCarrito([])}
+                  onClick={() => {
+                    setCarrito([])
+                    setPagaCon('')
+                  }}
                   className="w-full mt-3 bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-semibold transition-colors"
                 >
                   Limpiar Carrito
@@ -365,11 +389,6 @@ export default function PuntoVenta() {
           </div>
         </div>
       </div>
-      <BarcodeScanner
-        isOpen={mostrarScanner}
-        onClose={() => setMostrarScanner(false)}
-        onDetected={handleScanDetected}
-      />
 
       {mostrarProductoGenerico && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

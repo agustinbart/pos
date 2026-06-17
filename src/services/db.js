@@ -116,23 +116,36 @@ export const crearVenta = async (ventaData) => {
   
   if (errorVenta) throw errorVenta
   
-  // Crear detalles de venta
-  const detalles = detalle.map(item => ({
-    venta_id: venta.id,
-    producto_id: item.producto_id || null,
-    nombre_personalizado: item.nombre_personalizado || null,
-    cantidad: item.cantidad,
-    precio_unitario: item.precio_unitario
-  }))
-  
-  const { error: errorDetalle } = await supabase
-    .from('detalle_ventas')
-    .insert(detalles)
-  
-  if (errorDetalle) {
-    // Rollback: eliminar la venta si falla el detalle
+  try {
+    const detalles = []
+    for (const item of detalle) {
+      let productoId = item.producto_id
+
+      // Productos genéricos: crear entrada temporal en inventario para cumplir FK
+      if (item.nombre_personalizado) {
+        const producto = await crearProducto({
+          nombre: item.nombre_personalizado,
+          precio_venta: item.precio_unitario
+        })
+        productoId = producto.id
+      }
+
+      detalles.push({
+        venta_id: venta.id,
+        producto_id: productoId,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario
+      })
+    }
+
+    const { error: errorDetalle } = await supabase
+      .from('detalle_ventas')
+      .insert(detalles)
+
+    if (errorDetalle) throw errorDetalle
+  } catch (error) {
     await supabase.from('ventas').delete().eq('id', venta.id)
-    throw errorDetalle
+    throw error
   }
   
   return venta
