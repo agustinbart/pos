@@ -2,12 +2,25 @@ import { supabase } from '../supabaseClient'
 
 // ========== PRODUCTOS ==========
 
-export const getProductos = async () => {
+const COLUMNAS_LISTA = 'id, nombre, codigo_barras, precio_costo, precio_venta, updated_at'
+const COLUMNAS_POS = 'id, nombre, codigo_barras, precio_venta'
+
+export const LIMITE_PRODUCTOS_INICIAL = 12
+export const LIMITE_BUSQUEDA_INVENTARIO = 50
+export const LIMITE_BUSQUEDA_POS = 8
+export const MIN_CARACTERES_BUSQUEDA = 2
+
+function sanitizarTerminoBusqueda(termino) {
+  return termino.trim().replace(/[%_]/g, '')
+}
+
+export const getProductos = async ({ limite = LIMITE_PRODUCTOS_INICIAL, offset = 0 } = {}) => {
   const { data, error } = await supabase
     .from('productos')
-    .select('*')
+    .select(COLUMNAS_LISTA)
     .order('updated_at', { ascending: false })
-  
+    .range(offset, offset + limite - 1)
+
   if (error) throw error
   return data
 }
@@ -15,10 +28,10 @@ export const getProductos = async () => {
 export const getProductoById = async (id) => {
   const { data, error } = await supabase
     .from('productos')
-    .select('*')
+    .select(COLUMNAS_LISTA)
     .eq('id', id)
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -26,21 +39,38 @@ export const getProductoById = async (id) => {
 export const getProductoByCodigoBarras = async (codigoBarras) => {
   const { data, error } = await supabase
     .from('productos')
-    .select('*')
+    .select(COLUMNAS_POS)
     .eq('codigo_barras', codigoBarras)
     .single()
-  
+
   if (error && error.code !== 'PGRST116') throw error
   return data
 }
 
-export const buscarProductos = async (termino) => {
+export const buscarProductos = async (termino, { limite = LIMITE_BUSQUEDA_INVENTARIO } = {}) => {
+  const sanitizado = sanitizarTerminoBusqueda(termino)
+  if (!sanitizado) return []
+
+  if (/^\d+$/.test(sanitizado)) {
+    const { data, error } = await supabase
+      .from('productos')
+      .select(COLUMNAS_LISTA)
+      .eq('codigo_barras', sanitizado)
+      .limit(1)
+
+    if (error) throw error
+    if (data?.length) return data
+  }
+
+  if (sanitizado.length < MIN_CARACTERES_BUSQUEDA) return []
+
   const { data, error } = await supabase
     .from('productos')
-    .select('*')
-    .or(`nombre.ilike.%${termino}%,codigo_barras.ilike.%${termino}%`)
+    .select(COLUMNAS_LISTA)
+    .or(`nombre.ilike.%${sanitizado}%,codigo_barras.ilike.%${sanitizado}%`)
     .order('updated_at', { ascending: false })
-  
+    .limit(limite)
+
   if (error) throw error
   return data
 }
@@ -55,9 +85,9 @@ export const crearProducto = async (producto) => {
       precio_venta: producto.precio_venta,
       updated_at: new Date().toISOString()
     }])
-    .select()
+    .select(COLUMNAS_LISTA)
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -73,9 +103,9 @@ export const actualizarProducto = async (id, producto) => {
       updated_at: new Date().toISOString()
     })
     .eq('id', id)
-    .select()
+    .select(COLUMNAS_LISTA)
     .single()
-  
+
   if (error) throw error
   return data
 }
@@ -85,14 +115,14 @@ export const eliminarProducto = async (id) => {
     .from('productos')
     .delete()
     .eq('id', id)
-  
+
   if (error) throw error
 }
 
 export const suscribirProductos = (callback) => {
   return supabase
     .channel('productos-changes')
-    .on('postgres_changes', 
+    .on('postgres_changes',
       { event: '*', schema: 'public', table: 'productos' },
       callback
     )
@@ -103,25 +133,23 @@ export const suscribirProductos = (callback) => {
 
 export const crearVenta = async (ventaData) => {
   const { detalle, total } = ventaData
-  
-  // Iniciar transacción
+
   const { data: venta, error: errorVenta } = await supabase
     .from('ventas')
     .insert([{
       total: total,
       created_at: new Date().toISOString()
     }])
-    .select()
+    .select('id, total, created_at')
     .single()
-  
+
   if (errorVenta) throw errorVenta
-  
+
   try {
     const detalles = []
     for (const item of detalle) {
       let productoId = item.producto_id
 
-      // Productos genéricos: crear entrada temporal en inventario para cumplir FK
       if (item.nombre_personalizado) {
         const producto = await crearProducto({
           nombre: item.nombre_personalizado,
@@ -147,7 +175,7 @@ export const crearVenta = async (ventaData) => {
     await supabase.from('ventas').delete().eq('id', venta.id)
     throw error
   }
-  
+
   return venta
 }
 
@@ -155,9 +183,13 @@ export const getVentas = async () => {
   const { data, error } = await supabase
     .from('ventas')
     .select(`
-      *,
+      id,
+      created_at,
+      total,
       detalle_ventas (
-        *,
+        id,
+        cantidad,
+        precio_unitario,
         productos (
           nombre,
           codigo_barras
@@ -165,7 +197,7 @@ export const getVentas = async () => {
       )
     `)
     .order('created_at', { ascending: false })
-  
+
   if (error) throw error
   return data
 }

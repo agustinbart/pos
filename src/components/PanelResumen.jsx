@@ -55,11 +55,11 @@ export default function PanelResumen({ refrescar }) {
     getResumen()
   }, [refrescar])
 
-  return (
-    <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+ /* return (
+     <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="bg-gray-800 border border-gray-700 rounded-lg px-5 py-5 flex items-center gap-3">
         <BarChart2 className="h-8 w-8 text-blue-400 flex-shrink-0" />
-        <div>
+         <div>
           <div className="text-sm text-gray-400">Total vendido hoy</div>
           {loading ? <div className="text-xl font-bold text-white animate-pulse">Cargando...</div>
           : error ? <div className="text-red-400 text-sm">{error}</div>
@@ -82,5 +82,5 @@ export default function PanelResumen({ refrescar }) {
         </div>
       </div>
     </div>
-  )
+  ) */
 }

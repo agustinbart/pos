@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { ShoppingCart, Trash2, Plus, Minus, CheckCircle, Scan, Tag } from 'lucide-react'
-import { getProductoByCodigoBarras, buscarProductos } from '../services/db'
+import { getProductoByCodigoBarras, buscarProductos, LIMITE_BUSQUEDA_POS } from '../services/db'
 import { crearVenta } from '../services/db'
 
 import PanelResumen from './PanelResumen'
@@ -8,6 +8,7 @@ import PanelResumen from './PanelResumen'
 export default function PuntoVenta() {
   const [carrito, setCarrito] = useState([])
   const [busqueda, setBusqueda] = useState('')
+  const [busquedaDebounced, setBusquedaDebounced] = useState('')
   const [productosEncontrados, setProductosEncontrados] = useState([])
   const [mostrarBusqueda, setMostrarBusqueda] = useState(false)
   const [ventaExitosa, setVentaExitosa] = useState(false)
@@ -19,14 +20,29 @@ export default function PuntoVenta() {
   const [productoGenerico, setProductoGenerico] = useState({ nombre: '', precio: '' })
   const [pagaCon, setPagaCon] = useState('')
   const inputNombreGenericoRef = useRef(null)
+  const busquedaRequestIdRef = useRef(0)
 
   useEffect(() => {
-    if (busqueda.trim()) {
-      buscarProductos(busqueda).then(setProductosEncontrados).catch(console.error)
-    } else {
-      setProductosEncontrados([])
-    }
+    const timer = setTimeout(() => setBusquedaDebounced(busqueda), 300)
+    return () => clearTimeout(timer)
   }, [busqueda])
+
+  useEffect(() => {
+    const termino = busquedaDebounced.trim()
+    if (!termino) {
+      setProductosEncontrados([])
+      return
+    }
+
+    const requestId = ++busquedaRequestIdRef.current
+    buscarProductos(termino, { limite: LIMITE_BUSQUEDA_POS })
+      .then((data) => {
+        if (requestId === busquedaRequestIdRef.current) {
+          setProductosEncontrados(data)
+        }
+      })
+      .catch(console.error)
+  }, [busquedaDebounced])
 
   useEffect(() => {
     if (mostrarProductoGenerico && inputNombreGenericoRef.current) {

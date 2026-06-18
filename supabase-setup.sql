@@ -41,8 +41,14 @@ CREATE TABLE IF NOT EXISTS detalle_ventas (
 -- Índices para mejorar rendimiento
 CREATE INDEX IF NOT EXISTS idx_productos_codigo_barras ON productos(codigo_barras);
 CREATE INDEX IF NOT EXISTS idx_productos_nombre ON productos(nombre);
+CREATE INDEX IF NOT EXISTS idx_productos_updated_at ON productos (updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_detalle_ventas_venta_id ON detalle_ventas(venta_id);
 CREATE INDEX IF NOT EXISTS idx_detalle_ventas_producto_id ON detalle_ventas(producto_id);
+
+-- Índices trigram para búsquedas ILIKE (requiere extensión pg_trgm)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_productos_nombre_trgm ON productos USING gin (nombre gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_productos_codigo_barras_trgm ON productos USING gin (codigo_barras gin_trgm_ops);
 
 -- Trigger para actualizar updated_at automáticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
