@@ -62,19 +62,38 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_productos_updated_at BEFORE UPDATE ON productos
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Habilitar Row Level Security (RLS) - Opcional pero recomendado
+-- Habilitar Row Level Security (RLS)
 ALTER TABLE productos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ventas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detalle_ventas ENABLE ROW LEVEL SECURITY;
 
--- Políticas básicas (ajusta según tus necesidades de seguridad)
--- Estas políticas permiten todas las operaciones. Para producción, deberías restringirlas.
-
+-- Políticas: solo usuarios autenticados con JWT válido
 DROP POLICY IF EXISTS "Permitir todo en productos" ON productos;
-CREATE POLICY "Permitir todo en productos" ON productos FOR ALL USING (true);
-
 DROP POLICY IF EXISTS "Permitir todo en ventas" ON ventas;
-CREATE POLICY "Permitir todo en ventas" ON ventas FOR ALL USING (true);
-
 DROP POLICY IF EXISTS "Permitir todo en detalle_ventas" ON detalle_ventas;
-CREATE POLICY "Permitir todo en detalle_ventas" ON detalle_ventas FOR ALL USING (true);
+DROP POLICY IF EXISTS "productos_authenticated" ON productos;
+DROP POLICY IF EXISTS "ventas_authenticated" ON ventas;
+DROP POLICY IF EXISTS "detalle_ventas_authenticated" ON detalle_ventas;
+
+CREATE POLICY "productos_authenticated" ON productos
+  FOR ALL TO authenticated
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "ventas_authenticated" ON ventas
+  FOR ALL TO authenticated
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+CREATE POLICY "detalle_ventas_authenticated" ON detalle_ventas
+  FOR ALL TO authenticated
+  USING (auth.uid() IS NOT NULL)
+  WITH CHECK (auth.uid() IS NOT NULL);
+
+REVOKE ALL ON productos FROM anon;
+REVOKE ALL ON ventas FROM anon;
+REVOKE ALL ON detalle_ventas FROM anon;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON productos TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ventas TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON detalle_ventas TO authenticated;
