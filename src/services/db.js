@@ -131,6 +131,28 @@ export const suscribirProductos = (callback) => {
 
 // ========== VENTAS ==========
 
+function esCantidadEntera(cantidad) {
+  return Math.abs(cantidad - Math.round(cantidad)) < 0.0001
+}
+
+export function normalizarLineaVenta({ cantidad, precio_unitario }) {
+  const cantidadNum = parseFloat(cantidad)
+  const precioNum = parseFloat(precio_unitario)
+
+  if (esCantidadEntera(cantidadNum) && cantidadNum >= 1) {
+    return {
+      cantidad: Math.round(cantidadNum),
+      precio_unitario: precioNum,
+    }
+  }
+
+  const totalLinea = Math.round(precioNum * cantidadNum * 100) / 100
+  return {
+    cantidad: 1,
+    precio_unitario: totalLinea,
+  }
+}
+
 export const crearVenta = async (ventaData) => {
   const { detalle, total } = ventaData
 
@@ -158,11 +180,16 @@ export const crearVenta = async (ventaData) => {
         productoId = producto.id
       }
 
+      const { cantidad, precio_unitario } = normalizarLineaVenta({
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_unitario,
+      })
+
       detalles.push({
         venta_id: venta.id,
         producto_id: productoId,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio_unitario
+        cantidad,
+        precio_unitario,
       })
     }
 

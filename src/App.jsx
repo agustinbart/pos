@@ -9,6 +9,12 @@ function App() {
   const { autenticado, cargando, nombreUsuario, cerrarSesion } = useAuth()
   const [vistaActiva, setVistaActiva] = useState('venta')
   const [cerrandoSesion, setCerrandoSesion] = useState(false)
+  const [nuevoProductoRequest, setNuevoProductoRequest] = useState(null)
+
+  const abrirNuevoProducto = (codigoBarras = '') => {
+    setNuevoProductoRequest({ codigoBarras, key: Date.now() })
+    setVistaActiva('inventario')
+  }
 
   const handleCerrarSesion = async () => {
     setCerrandoSesion(true)
@@ -82,7 +88,11 @@ function App() {
       </nav>
 
       <main>
-        {vistaActiva === 'venta' ? <PuntoVenta /> : <Inventario />}
+        {vistaActiva === 'venta' ? (
+          <PuntoVenta onAbrirNuevoProducto={abrirNuevoProducto} />
+        ) : (
+          <Inventario nuevoProductoRequest={nuevoProductoRequest} />
+        )}
       </main>
     </div>
   )

@@ -15,7 +15,7 @@ import {
 const DEBOUNCE_MS = 300
 const DEBOUNCE_SUSCRIPCION_MS = 500
 
-export default function Inventario() {
+export default function Inventario({ nuevoProductoRequest }) {
   const [productos, setProductos] = useState([])
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
@@ -40,6 +40,19 @@ export default function Inventario() {
   useEffect(() => {
     busquedaRef.current = busqueda
   }, [busqueda])
+
+  useEffect(() => {
+    if (!nuevoProductoRequest) return
+
+    setProductoEditando(null)
+    setFormData({
+      nombre: '',
+      codigo_barras: nuevoProductoRequest.codigoBarras || '',
+      precio_costo: '',
+      precio_venta: '',
+    })
+    setMostrarFormulario(true)
+  }, [nuevoProductoRequest])
 
   useEffect(() => {
     const timer = setTimeout(() => setBusquedaDebounced(busqueda), DEBOUNCE_MS)

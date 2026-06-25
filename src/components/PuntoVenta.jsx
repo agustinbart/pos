@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { ShoppingCart, Trash2, Plus, Minus, CheckCircle, Scan, Tag } from 'lucide-react'
+import { ShoppingCart, Trash2, Plus, Minus, CheckCircle, Scan, Tag, PackagePlus, AlertCircle } from 'lucide-react'
 import { getProductoByCodigoBarras, buscarProductos, LIMITE_BUSQUEDA_POS } from '../services/db'
 import { crearVenta } from '../services/db'
 
 import PanelResumen from './PanelResumen'
 
-export default function PuntoVenta() {
+function formatearCantidad(cantidad) {
+  return Number(parseFloat(cantidad).toFixed(3)).toString()
+}
+
+export default function PuntoVenta({ onAbrirNuevoProducto }) {
   const [carrito, setCarrito] = useState([])
   const [busqueda, setBusqueda] = useState('')
   const [busquedaDebounced, setBusquedaDebounced] = useState('')
@@ -19,8 +23,29 @@ export default function PuntoVenta() {
   const [mostrarProductoGenerico, setMostrarProductoGenerico] = useState(false)
   const [productoGenerico, setProductoGenerico] = useState({ nombre: '', precio: '' })
   const [pagaCon, setPagaCon] = useState('')
+  const [cantidadEditando, setCantidadEditando] = useState({})
+  const [avisoCodigoBarras, setAvisoCodigoBarras] = useState(null)
   const inputNombreGenericoRef = useRef(null)
   const busquedaRequestIdRef = useRef(0)
+  const avisoTimeoutRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (avisoTimeoutRef.current) clearTimeout(avisoTimeoutRef.current)
+    }
+  }, [])
+
+  const mostrarAvisoCodigoBarras = (codigo) => {
+    if (avisoTimeoutRef.current) clearTimeout(avisoTimeoutRef.current)
+    setAvisoCodigoBarras(codigo)
+    avisoTimeoutRef.current = setTimeout(() => setAvisoCodigoBarras(null), 5000)
+  }
+
+  const limpiarBusqueda = () => {
+    setBusqueda('')
+    setProductosEncontrados([])
+    setMostrarBusqueda(false)
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setBusquedaDebounced(busqueda), 300)
@@ -95,9 +120,7 @@ export default function PuntoVenta() {
       }])
     }
     
-    setBusqueda('')
-    setProductosEncontrados([])
-    setMostrarBusqueda(false)
+    limpiarBusqueda()
   }
 
   const agregarProductoGenerico = (e) => {
@@ -128,16 +151,24 @@ export default function PuntoVenta() {
   }
 
   const escanearCodigoBarras = async (codigo) => {
-    if (!codigo.trim()) return
-    
+    const codigoLimpio = codigo.trim()
+    if (!codigoLimpio) return
+
     try {
-      const producto = await getProductoByCodigoBarras(codigo.trim())
+      const producto = await getProductoByCodigoBarras(codigoLimpio)
       if (producto) {
         agregarAlCarrito(producto)
+        enfocarInputBusqueda()
+      } else {
+        mostrarAvisoCodigoBarras(codigoLimpio)
+        limpiarBusqueda()
         enfocarInputBusqueda()
       }
     } catch (error) {
       console.error('Error buscando producto:', error)
+      mostrarAvisoCodigoBarras(codigoLimpio)
+      limpiarBusqueda()
+      enfocarInputBusqueda()
     }
   }
 
@@ -158,15 +189,28 @@ export default function PuntoVenta() {
   }
 
   const actualizarCantidad = (itemId, nuevaCantidad) => {
-    if (nuevaCantidad <= 0) {
+    const cantidad = parseFloat(nuevaCantidad)
+    if (isNaN(cantidad) || cantidad <= 0) {
       setCarrito(carrito.filter(item => item.id !== itemId))
     } else {
       setCarrito(carrito.map(item =>
         item.id === itemId
-          ? { ...item, cantidad: nuevaCantidad }
+          ? { ...item, cantidad }
           : item
       ))
     }
+  }
+
+  const handleCantidadBlur = (itemId, valor) => {
+    const cantidad = parseFloat(valor)
+    if (!isNaN(cantidad) && cantidad > 0) {
+      actualizarCantidad(itemId, cantidad)
+    }
+    setCantidadEditando((prev) => {
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    })
   }
 
   const eliminarDelCarrito = (itemId) => {
@@ -267,7 +311,20 @@ export default function PuntoVenta() {
           </div>
         </div>
 
-        {/* Mensaje de venta exitosa */}
+        {avisoCodigoBarras && (
+          <div className="mb-4 bg-amber-900/60 border border-amber-600 text-amber-100 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-start gap-3 flex-1">
+              <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">Producto no encontrado</p>
+                <p className="text-sm text-amber-200/90">
+                  No existe un producto con el código <span className="font-mono">{avisoCodigoBarras}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {ventaExitosa && (
           <div className="mb-6 bg-green-600 text-white p-4 rounded-lg flex items-center gap-3 animate-pulse">
             <CheckCircle className="w-6 h-6" />
@@ -302,14 +359,34 @@ export default function PuntoVenta() {
                       
                       <div className="flex items-center gap-3">
                         <button
-                          onClick={() => actualizarCantidad(item.id, item.cantidad - 1)}
+                          onClick={() => actualizarCantidad(item.id, Math.max(0.001, item.cantidad - 1))}
                           className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg transition-colors"
                         >
                           <Minus className="w-5 h-5" />
                         </button>
-                        <span className="text-white font-semibold text-lg min-w-[3ch] text-center">
-                          {item.cantidad}
-                        </span>
+                        <input
+                          type="number"
+                          step="0.001"
+                          min="0.001"
+                          value={cantidadEditando[item.id] ?? formatearCantidad(item.cantidad)}
+                          onFocus={() =>
+                            setCantidadEditando((prev) => ({
+                              ...prev,
+                              [item.id]: formatearCantidad(item.cantidad),
+                            }))
+                          }
+                          onChange={(e) =>
+                            setCantidadEditando((prev) => ({
+                              ...prev,
+                              [item.id]: e.target.value,
+                            }))
+                          }
+                          onBlur={(e) => handleCantidadBlur(item.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur()
+                          }}
+                          className="w-20 px-2 py-1 bg-gray-600 border border-gray-500 rounded-lg text-white font-semibold text-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
                         <button
                           onClick={() => actualizarCantidad(item.id, item.cantidad + 1)}
                           className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg transition-colors"
@@ -341,7 +418,7 @@ export default function PuntoVenta() {
               <div className="space-y-3 mb-6">
                 {carrito.map((item) => (
                   <div key={item.id} className="flex justify-between text-gray-300">
-                    <span>{item.nombre} x{item.cantidad}</span>
+                    <span>{item.nombre} x{formatearCantidad(item.cantidad)}</span>
                     <span>${(item.precio_unitario * item.cantidad).toFixed(2)}</span>
                   </div>
                 ))}
